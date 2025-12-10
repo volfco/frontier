@@ -229,7 +229,7 @@ func ServeConnect(ctx context.Context, logger log.Logger, cfg Config, deps api.D
 	mux.Handle("/metrics", promhttp.HandlerFor(promRegistry, promhttp.HandlerOpts{}))
 
 	baseURL := fmt.Sprintf("http://%s:%d", cfg.Host, cfg.Connect.Port)
-	oidc := newOIDCProvider(deps.AuthnService, deps.SessionService, deps.UserService, deps.GroupService, sessionCookieCutter, cfg.Authentication.Token.Issuer, baseURL)
+	oidc := newOIDCProvider(deps.AuthnService, deps.SessionService, deps.UserService, deps.GroupService, sessionCookieCutter, cfg.Authentication.Token.Issuer, baseURL, logger)
 	mux.HandleFunc("/.well-known/openid-configuration", oidc.handleDiscovery)
 	// strategy-aware discovery: /.well-known/openid-configuration/{strategy}
 	mux.HandleFunc("/.well-known/openid-configuration/", oidc.handleDiscoveryWithStrategy)

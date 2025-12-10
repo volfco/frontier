@@ -26,7 +26,7 @@ func TestDiscovery(t *testing.T) {
 	users := new(v1mocks.UserService)
 	groups := new(v1mocks.GroupService)
 	codec := securecookie.New([]byte(strings.Repeat("h", 32)), []byte(strings.Repeat("b", 32)))
-	p := newOIDCProvider(authn, sessions, users, groups, codec, "http://localhost:8002", "http://localhost:8002")
+	p := newOIDCProvider(authn, sessions, users, groups, codec, "http://localhost:8002", "http://localhost:8002", nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/.well-known/openid-configuration", nil)
 	rr := httptest.NewRecorder()
@@ -44,7 +44,7 @@ func TestAuthorizeRedirect(t *testing.T) {
 	users := new(v1mocks.UserService)
 	groups := new(v1mocks.GroupService)
 	codec := securecookie.New([]byte(strings.Repeat("h", 32)), []byte(strings.Repeat("b", 32)))
-	p := newOIDCProvider(authn, sessions, users, groups, codec, "http://localhost:8002", "http://localhost:8002")
+	p := newOIDCProvider(authn, sessions, users, groups, codec, "http://localhost:8002", "http://localhost:8002", nil)
 
 	sid := uuid.New()
 	cookieVal, err := codec.Encode("sid", sid.String())
@@ -78,7 +78,7 @@ func TestTokenExchange(t *testing.T) {
 	users := new(v1mocks.UserService)
 	groups := new(v1mocks.GroupService)
 	codec := securecookie.New([]byte(strings.Repeat("h", 32)), []byte(strings.Repeat("b", 32)))
-	p := newOIDCProvider(authn, sessions, users, groups, codec, "http://localhost:8002", "http://localhost:8002")
+	p := newOIDCProvider(authn, sessions, users, groups, codec, "http://localhost:8002", "http://localhost:8002", nil)
 
 	princ := authenticate.Principal{ID: "user-1", Type: "app/user"}
 	code := "code-1"
@@ -110,7 +110,7 @@ func TestUserInfo(t *testing.T) {
 	users := new(v1mocks.UserService)
 	groups := new(v1mocks.GroupService)
 	codec := securecookie.New([]byte(strings.Repeat("h", 32)), []byte(strings.Repeat("b", 32)))
-	p := newOIDCProvider(authn, sessions, users, groups, codec, "http://localhost:8002", "http://localhost:8002")
+	p := newOIDCProvider(authn, sessions, users, groups, codec, "http://localhost:8002", "http://localhost:8002", nil)
 
 	princ := authenticate.Principal{ID: "user-1", Type: "app/user", User: &user.User{Email: "a@b.com", Title: "Alice"}}
 	authn.EXPECT().GetPrincipal(mock.Anything, authenticate.AccessTokenClientAssertion).Return(princ, nil)
