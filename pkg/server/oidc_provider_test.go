@@ -20,24 +20,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDiscovery(t *testing.T) {
-	authn := new(v1mocks.AuthnService)
-	sessions := new(v1mocks.SessionService)
-	users := new(v1mocks.UserService)
-	groups := new(v1mocks.GroupService)
-	codec := securecookie.New([]byte(strings.Repeat("h", 32)), []byte(strings.Repeat("b", 32)))
-	p := newOIDCProvider(authn, sessions, users, groups, codec, "http://localhost:8002", "http://localhost:8002", nil)
-
-	req := httptest.NewRequest(http.MethodGet, "/.well-known/openid-configuration", nil)
-	rr := httptest.NewRecorder()
-	p.handleDiscovery(rr, req)
-	require.Equal(t, http.StatusOK, rr.Code)
-	var got map[string]any
-	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &got))
-	require.Equal(t, "http://localhost:8002", got["issuer"])
-	require.Equal(t, "http://localhost:8002/oidc/oidc/authorize", got["authorization_endpoint"])
-}
-
 func TestAuthorizeRedirect(t *testing.T) {
 	authn := new(v1mocks.AuthnService)
 	sessions := new(v1mocks.SessionService)

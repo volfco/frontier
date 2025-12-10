@@ -61,55 +61,6 @@ func newOIDCProvider(authn v1beta1connect.AuthnService, sessions v1beta1connect.
 	}
 }
 
-func (p *oidcProvider) handleDiscovery(w http.ResponseWriter, r *http.Request) {
-	if p.logger != nil {
-		p.logger.Info("oidc discovery", "issuer", p.issuer)
-	}
-	resp := map[string]any{
-		"issuer":                                p.issuer,
-		"authorization_endpoint":                p.baseURL + "/oidc/oidc/authorize",
-		"token_endpoint":                        p.baseURL + "/oidc/oidc/token",
-		"userinfo_endpoint":                     p.baseURL + "/oidc/oidc/userinfo",
-		"jwks_uri":                              p.baseURL + "/.well-known/jwks.json",
-		"response_types_supported":              []string{"code"},
-		"subject_types_supported":               []string{"public"},
-		"id_token_signing_alg_values_supported": []string{"RS256"},
-		"scopes_supported":                      []string{"openid", "profile", "email", "groups"},
-		"claims_supported":                      []string{"sub", "aud", "iss", "exp", "iat", "email", "name"},
-		"grant_types_supported":                 []string{"authorization_code"},
-	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(resp)
-}
-
-// handleDiscoveryWithStrategy returns endpoints bound under a given strategy path
-func (p *oidcProvider) handleDiscoveryWithStrategy(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimPrefix(r.URL.Path, "/.well-known/openid-configuration/")
-	strat := strings.Trim(path, "/")
-	if strat == "" {
-		p.handleDiscovery(w, r)
-		return
-	}
-	if p.logger != nil {
-		p.logger.Info("oidc discovery strategy", "strategy", strat, "issuer", p.issuer)
-	}
-	resp := map[string]any{
-		"issuer":                                p.issuer,
-		"authorization_endpoint":                p.baseURL + "/oidc/" + strat + "/authorize",
-		"token_endpoint":                        p.baseURL + "/oidc/" + strat + "/token",
-		"userinfo_endpoint":                     p.baseURL + "/oidc/" + strat + "/userinfo",
-		"jwks_uri":                              p.baseURL + "/.well-known/jwks.json",
-		"response_types_supported":              []string{"code"},
-		"subject_types_supported":               []string{"public"},
-		"id_token_signing_alg_values_supported": []string{"RS256"},
-		"scopes_supported":                      []string{"openid", "profile", "email", "groups"},
-		"claims_supported":                      []string{"sub", "aud", "iss", "exp", "iat", "email", "name"},
-		"grant_types_supported":                 []string{"authorization_code"},
-	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(resp)
-}
-
 func (p *oidcProvider) handleJWKS(w http.ResponseWriter, r *http.Request) {
 	if p.logger != nil {
 		p.logger.Info("jwks served")
@@ -119,14 +70,45 @@ func (p *oidcProvider) handleJWKS(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(set)
 }
 
-func (p *oidcProvider) dispatchOIDC(w http.ResponseWriter, r *http.Request) {
+func (p *oidcProvider) dispatchSSO(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(parts) < 3 || parts[0] != "oidc" {
+	if len(parts) < 3 || parts[0] != "sso" {
 		http.NotFound(w, r)
 		return
 	}
+	strat := parts[1]
+	if len(parts) >= 4 && parts[2] == ".well-known" {
+		switch parts[3] {
+		case "openid-configuration":
+			if p.logger != nil {
+				p.logger.Info("oidc discovery strategy", "strategy", strat, "issuer", p.issuer)
+			}
+			resp := map[string]any{
+				"issuer":                                p.issuer,
+				"authorization_endpoint":                p.baseURL + "/sso/" + strat + "/authorize",
+				"token_endpoint":                        p.baseURL + "/sso/" + strat + "/token",
+				"userinfo_endpoint":                     p.baseURL + "/sso/" + strat + "/userinfo",
+				"jwks_uri":                              p.baseURL + "/sso/" + strat + "/.well-known/jwks.json",
+				"response_types_supported":              []string{"code"},
+				"subject_types_supported":               []string{"public"},
+				"id_token_signing_alg_values_supported": []string{"RS256"},
+				"scopes_supported":                      []string{"openid", "profile", "email", "groups"},
+				"claims_supported":                      []string{"sub", "aud", "iss", "exp", "iat", "email", "name"},
+				"grant_types_supported":                 []string{"authorization_code"},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		case "jwks.json":
+			p.handleJWKS(w, r)
+			return
+		default:
+			http.NotFound(w, r)
+			return
+		}
+	}
 	if p.logger != nil {
-		p.logger.Debug("oidc dispatch", "path", r.URL.Path, "action", parts[2])
+		p.logger.Debug("sso dispatch", "path", r.URL.Path, "action", parts[2])
 	}
 	switch parts[2] {
 	case "authorize":
@@ -149,7 +131,7 @@ func (p *oidcProvider) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 	state := strings.TrimSpace(q.Get("state"))
 	nonce := strings.TrimSpace(q.Get("nonce"))
 	strategy := "oidc"
-	if strings.HasPrefix(r.URL.Path, "/oidc/") && strings.HasSuffix(r.URL.Path, "/authorize") {
+	if strings.HasPrefix(r.URL.Path, "/sso/") && strings.HasSuffix(r.URL.Path, "/authorize") {
 		parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 		if len(parts) >= 3 {
 			strategy = parts[1]
