@@ -228,6 +228,19 @@ func ServeConnect(ctx context.Context, logger log.Logger, cfg Config, deps api.D
 	mux.Handle(grpcreflect.NewHandlerV1Alpha(reflector))
 	mux.Handle("/metrics", promhttp.HandlerFor(promRegistry, promhttp.HandlerOpts{}))
 
+	baseURL := fmt.Sprintf("http://%s:%d", cfg.Host, cfg.Connect.Port)
+	oidc := newOIDCProvider(deps.AuthnService, deps.SessionService, deps.UserService, deps.GroupService, sessionCookieCutter, cfg.Authentication.Token.Issuer, baseURL)
+	mux.HandleFunc("/.well-known/openid-configuration", oidc.handleDiscovery)
+	// strategy-aware discovery: /.well-known/openid-configuration/{strategy}
+	mux.HandleFunc("/.well-known/openid-configuration/", oidc.handleDiscoveryWithStrategy)
+	mux.HandleFunc("/.well-known/jwks.json", oidc.handleJWKS)
+	// legacy paths
+	mux.HandleFunc("/oauth2/authorize", oidc.handleAuthorize)
+	mux.HandleFunc("/oauth2/token", oidc.handleToken)
+	mux.HandleFunc("/userinfo", oidc.handleUserInfo)
+	// strategy-aware base: /oidc/{strategy}/...
+	mux.HandleFunc("/oidc/", oidc.dispatchOIDC)
+
 	// configure healthcheck
 	// curl --header "Content-Type: application/json" \
 	// --data '{"service":"raystack.frontier.v1beta1.AdminService"}' \
